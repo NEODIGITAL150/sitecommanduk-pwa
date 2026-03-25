@@ -682,8 +682,12 @@
             const fd = new FormData();
             fd.append('audio', blob, 'command.webm');
             fd.append('tenant_id', TENANT_ID);
-            if (currentSessionId) fd.append('session_id', currentSessionId);
-            const res = await fetch(N8N_WEBHOOK_URL, { method: 'POST', body: fd });
+            
+            // Build URL with query params so n8n can read them regardless of binary data
+            let webhookUrl = N8N_WEBHOOK_URL + '?tenant_id=' + encodeURIComponent(TENANT_ID);
+            if (currentSessionId) webhookUrl += '&session_id=' + encodeURIComponent(currentSessionId);
+            
+            const res = await fetch(webhookUrl, { method: 'POST', body: fd });
             if (!res.ok) throw new Error();
             const data = await res.json();
 
