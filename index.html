@@ -582,196 +582,215 @@
   </div>
 
   <script>
-    const N8N_WEBHOOK_URL = 'https://sitecommanduk.app.n8n.cloud/webhook/sitebot-voice-command';
-    const TENANT_ID = 'rec9p6w2uNFmbmpFD';
-    let currentSessionId = null; // tracks active task session
+  const N8N_WEBHOOK_URL = 'https://sitecommanduk.app.n8n.cloud/webhook/sitebot-voice-command';
+const TENANT_ID = 'rec9p6w2uNFmbmpFD';
+let currentSessionId = null;
 
-    const app = document.getElementById('app');
-    const pttBtn = document.getElementById('pttBtn');
-    const statusText = document.getElementById('statusText');
-    const responseText = document.getElementById('responseText');
-    const btnIcon = document.getElementById('btnIcon');
-    const btnLabel = document.getElementById('btnLabel');
-    const holdHint = document.getElementById('holdHint');
+const app = document.getElementById('app');
+const pttBtn = document.getElementById('pttBtn');
+const statusText = document.getElementById('statusText');
+const responseText = document.getElementById('responseText');
+const btnIcon = document.getElementById('btnIcon');
+const btnLabel = document.getElementById('btnLabel');
+const holdHint = document.getElementById('holdHint');
 
-    const STATES = {
-      idle: { status: 'Ready', icon: '🎙️', label: 'TAP TO TALK', hint: 'Hold to record · Release to send' },
-      listening: { status: 'Listening...', icon: '🔴', label: 'RELEASE TO SEND', hint: 'Speak your command clearly' },
-      thinking: { status: 'Thinking...', icon: '⚙️', label: 'WORKING...', hint: 'SiteBot is processing...' },
-      speaking: { status: 'Speaking...', icon: '🔊', label: 'WAIT...', hint: 'Playing response' },
-      success: { status: 'Done ✓', icon: '✅', label: 'TAP TO TALK', hint: 'Hold to record · Release to send' },
-      error: { status: 'Error', icon: '⚠️', label: 'TRY AGAIN', hint: 'Something went wrong' },
-    };
+const STATES = {
+  idle:      { status: 'Ready',        icon: '🎙️', label: 'TAP TO TALK',    hint: 'Hold to record · Release to send' },
+  listening: { status: 'Listening...', icon: '🔴', label: 'RELEASE TO SEND', hint: 'Speak your command clearly'       },
+  thinking:  { status: 'Thinking...',  icon: '⚙️', label: 'WORKING...',      hint: 'SiteBot is processing...'        },
+  speaking:  { status: 'Speaking...',  icon: '🔊', label: 'WAIT...',         hint: 'Playing response'                },
+  success:   { status: 'Done ✓',       icon: '✅', label: 'TAP TO TALK',    hint: 'Hold to record · Release to send' },
+  error:     { status: 'Error',        icon: '⚠️', label: 'TRY AGAIN',      hint: 'Something went wrong'            },
+};
 
-    const EYES = {
-      idle: { ry: 10, fill: '#3FA9F5' },
-      listening: { ry: 13, fill: '#3FA9F5' },
-      thinking: { ry: 4, fill: '#3FA9F5' },
-      speaking: { ry: 11, fill: '#3FA9F5' },
-      success: { ry: 4, fill: '#22c55e' },
-      error: { ry: 7, fill: '#ef4444' },
-    };
+const EYES = {
+  idle:      { ry: 10, fill: '#3FA9F5' },
+  listening: { ry: 13, fill: '#3FA9F5' },
+  thinking:  { ry: 4,  fill: '#3FA9F5' },
+  speaking:  { ry: 11, fill: '#3FA9F5' },
+  success:   { ry: 4,  fill: '#22c55e' },
+  error:     { ry: 7,  fill: '#ef4444' },
+};
 
-    const SMILES = {
-      idle: 'M78 153 Q100 165 122 153',
-      listening: 'M78 155 Q100 170 122 155',
-      thinking: 'M80 160 Q100 155 120 160',
-      speaking: 'M78 155 Q100 170 122 155',
-      success: 'M72 153 Q100 174 128 153',
-      error: 'M80 162 Q100 152 120 162',
-    };
+const SMILES = {
+  idle:      'M78 153 Q100 165 122 153',
+  listening: 'M78 155 Q100 170 122 155',
+  thinking:  'M80 160 Q100 155 120 160',
+  speaking:  'M78 155 Q100 170 122 155',
+  success:   'M72 153 Q100 174 128 153',
+  error:     'M80 162 Q100 152 120 162',
+};
 
-    let currentState = 'idle';
+let currentState = 'idle';
 
-    function setState(state, message) {
-      currentState = state;
-      const s = STATES[state] || STATES.idle;
-      app.className = `app state-${state}`;
-      statusText.textContent = s.status;
-      btnIcon.textContent = s.icon;
-      btnLabel.textContent = s.label;
-      holdHint.textContent = s.hint;
-      if (message !== undefined) responseText.textContent = message;
-      else if (state === 'idle') responseText.textContent = '';
+function setState(state, message) {
+  currentState = state;
+  const s = STATES[state] || STATES.idle;
+  app.className = `app state-${state}`;
+  statusText.textContent = s.status;
+  btnIcon.textContent = s.icon;
+  btnLabel.textContent = s.label;
+  holdHint.textContent = s.hint;
+  if (message !== undefined) responseText.textContent = message;
+  else if (state === 'idle') responseText.textContent = '';
 
-      // Update eyes
-      const cfg = EYES[state] || EYES.idle;
-      document.getElementById('eyeL').setAttribute('ry', cfg.ry);
-      document.getElementById('eyeR').setAttribute('ry', cfg.ry);
-      document.getElementById('eyeL').setAttribute('fill', cfg.fill);
-      document.getElementById('eyeR').setAttribute('fill', cfg.fill);
+  const cfg = EYES[state] || EYES.idle;
+  document.getElementById('eyeL').setAttribute('ry', cfg.ry);
+  document.getElementById('eyeR').setAttribute('ry', cfg.ry);
+  document.getElementById('eyeL').setAttribute('fill', cfg.fill);
+  document.getElementById('eyeR').setAttribute('fill', cfg.fill);
+  document.getElementById('smilePath').setAttribute('d', SMILES[state] || SMILES.idle);
+}
 
-      // Update smile
-      document.getElementById('smilePath').setAttribute('d', SMILES[state] || SMILES.idle);
-    }
+// ── AUDIO ──
+let mediaRecorder, audioChunks = [], isRecording = false, stream;
 
-    // ── AUDIO ──
-    let mediaRecorder, audioChunks = [], isRecording = false, stream;
+async function getStream() {
+  if (stream) return stream;
+  stream = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 16000 }
+  });
+  return stream;
+}
 
-    async function getStream() {
-      if (stream) return stream;
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 16000 }
-      });
-      return stream;
-    }
+async function startRecording() {
+  if (isRecording || currentState === 'thinking' || currentState === 'speaking') return;
+  try {
+    audioChunks = [];
+    mediaRecorder = new MediaRecorder(await getStream(), { mimeType: 'audio/webm' });
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.start(100);
+    isRecording = true;
+    setState('listening');
+  } catch {
+    setState('error', 'Mic access denied. Allow microphone in settings.');
+  }
+}
 
-    async function startRecording() {
-      if (isRecording || currentState === 'thinking' || currentState === 'speaking') return;
+async function stopAndSend() {
+  if (!isRecording || !mediaRecorder) return;
+  isRecording = false;
+  return new Promise(resolve => {
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(audioChunks, { type: 'audio/webm' });
+      if (blob.size < 1000) { setState('idle'); resolve(); return; }
+      setState('thinking');
       try {
-        audioChunks = [];
-        mediaRecorder = new MediaRecorder(await getStream(), { mimeType: 'audio/webm' });
-        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
-        mediaRecorder.start(100);
-        isRecording = true;
-        setState('listening');
-      } catch {
-        setState('error', 'Mic access denied. Allow microphone in settings.');
-      }
-    }
+        const fd = new FormData();
+        fd.append('audio', blob, 'command.webm');
 
-    async function stopAndSend() {
-      if (!isRecording || !mediaRecorder) return;
-      isRecording = false;
-      return new Promise(resolve => {
-        mediaRecorder.onstop = async () => {
-          const blob = new Blob(audioChunks, { type: 'audio/webm' });
-          if (blob.size < 1000) { setState('idle'); resolve(); return; }
-          setState('thinking');
-          try {
-            const fd = new FormData();
-            fd.append('audio', blob, 'command.webm');
-            fd.append('tenant_id', TENANT_ID);
-            
-            // Build URL with query params so n8n can read them regardless of binary data
-            let webhookUrl = N8N_WEBHOOK_URL + '?tenant_id=' + encodeURIComponent(TENANT_ID);
-            if (currentSessionId) webhookUrl += '&session_id=' + encodeURIComponent(currentSessionId);
-            
-            const res = await fetch(webhookUrl, { method: 'POST', body: fd });
-            if (!res.ok) throw new Error();
-            const data = await res.json();
+        // Always send tenant_id and session_id as query params
+        let webhookUrl = N8N_WEBHOOK_URL + '?tenant_id=' + encodeURIComponent(TENANT_ID);
+        if (currentSessionId) {
+          webhookUrl += '&session_id=' + encodeURIComponent(currentSessionId);
+          console.log('Sending with session_id:', currentSessionId);
+        } else {
+          console.log('No session_id — new session');
+        }
 
-            // Handle blocked
-            if (data.blocked) {
-              setState('error', data.message);
-              speak(data.tts_text, () => setTimeout(() => setState('idle'), 3000));
-              return;
-            }
+        const res = await fetch(webhookUrl, { method: 'POST', body: fd });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
 
-            // Store session ID for follow-ups
-            if (data.session_id) currentSessionId = data.session_id;
+        console.log('Response:', JSON.stringify(data));
 
-            const msg = data.message || 'Done.';
-            setState('speaking', msg);
-
-            speak(data.tts_text || msg, () => {
-              if (data.needs_followup && data.auto_mic) {
-                // Auto-enable mic after 1 second for follow-up
-                setState('listening', msg);
-                setTimeout(() => startRecording(), 1000);
-              } else {
-                // Task complete — clear session
-                currentSessionId = null;
-                setState('success', msg);
-                setTimeout(() => setState('idle'), 3000);
-              }
-            });
-          } catch {
-            setState('error', 'Failed to reach SiteCommand. Check connection.');
-            setTimeout(() => setState('idle'), 3000);
-          }
+        // Handle blocked
+        if (data.blocked) {
+          setState('error', data.message);
+          speak(data.tts_text, () => setTimeout(() => setState('idle'), 3000));
           resolve();
-        };
-        mediaRecorder.stop();
-      });
-    }
+          return;
+        }
 
-    function speak(text, onEnd) {
-      if ('speechSynthesis' in window) {
-        const u = new SpeechSynthesisUtterance(text);
-        u.lang = 'en-GB'; u.rate = 1.05;
-        u.onend = onEnd;
-        speechSynthesis.speak(u);
-      } else { setTimeout(onEnd, 2000); }
-    }
+        // Always store session_id if returned — keep it alive across presses
+        if (data.session_id) {
+          currentSessionId = data.session_id;
+          console.log('Session stored:', currentSessionId);
+        }
 
-    // ── BUTTON EVENTS ──
-    const onPress = e => { e.preventDefault(); startRecording(); };
-    const onRelease = e => { e.preventDefault(); if (isRecording) stopAndSend(); };
+        const msg = data.message || 'Done.';
+        setState('speaking', msg);
 
-    pttBtn.addEventListener('touchstart', onPress, { passive: false });
-    pttBtn.addEventListener('touchend', onRelease, { passive: false });
-    pttBtn.addEventListener('touchcancel', onRelease, { passive: false });
-    pttBtn.addEventListener('mousedown', onPress);
-    pttBtn.addEventListener('mouseup', onRelease);
-    pttBtn.addEventListener('mouseleave', e => { if (isRecording) onRelease(e); });
+        speak(data.tts_text || msg, () => {
+          // Detect follow-up: agent asked a question (ends with ?)
+          const isFollowUp = data.task_complete === false || 
+                             (msg.trim().endsWith('?'));
 
-    // ── OUKITEL RT3 HARDWARE BUTTON ──
-    // RT3 side programmable button fires as these key events on Android Chrome:
-    const HW_KEYS = new Set(['F13', 'F14', 'F15', 'F16', 'AudioVolumeUp', 'MediaTrackNext', 'MediaTrackPrevious']);
-    const HW_CODES = new Set([301, 302, 303, 304, 305, 306]);
+          if (isFollowUp) {
+            // Keep session alive — agent needs more info
+            // Auto re-enable mic after 800ms
+            setState('idle', msg);
+            setTimeout(() => {
+              if (currentState === 'idle') startRecording();
+            }, 800);
+          } else {
+            // Task complete — clear session for next fresh task
+            console.log('Task complete — clearing session');
+            currentSessionId = null;
+            setState('success', msg);
+            setTimeout(() => setState('idle'), 3500);
+          }
+        });
 
-    document.addEventListener('keydown', e => {
-      if (HW_KEYS.has(e.key) || HW_CODES.has(e.keyCode)) {
-        e.preventDefault();
-        startRecording();
+      } catch (err) {
+        console.error('Error:', err);
+        setState('error', 'Failed to reach SiteCommand. Check connection.');
+        setTimeout(() => setState('idle'), 3000);
       }
-    });
+      resolve();
+    };
+    mediaRecorder.stop();
+  });
+}
 
-    document.addEventListener('keyup', e => {
-      if (HW_KEYS.has(e.key) || HW_CODES.has(e.keyCode)) {
-        e.preventDefault();
-        if (isRecording) stopAndSend();
-      }
-    });
+function speak(text, onEnd) {
+  if ('speechSynthesis' in window) {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-GB';
+    u.rate = 1.05;
+    u.onend = onEnd;
+    speechSynthesis.speak(u);
+  } else {
+    setTimeout(onEnd, 2000);
+  }
+}
 
-    // ── INIT ──
-    window.addEventListener('load', async () => {
-      try { await getStream(); } catch (_) { }
-      setState('idle');
-    });
+// ── BUTTON EVENTS ──
+const onPress = e => { e.preventDefault(); startRecording(); };
+const onRelease = e => { e.preventDefault(); if (isRecording) stopAndSend(); };
 
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(console.error);
+pttBtn.addEventListener('touchstart', onPress, { passive: false });
+pttBtn.addEventListener('touchend', onRelease, { passive: false });
+pttBtn.addEventListener('touchcancel', onRelease, { passive: false });
+pttBtn.addEventListener('mousedown', onPress);
+pttBtn.addEventListener('mouseup', onRelease);
+pttBtn.addEventListener('mouseleave', e => { if (isRecording) onRelease(e); });
+
+// ── OUKITEL RT3 HARDWARE BUTTON ──
+const HW_KEYS = new Set(['F13', 'F14', 'F15', 'F16', 'AudioVolumeUp', 'MediaTrackNext', 'MediaTrackPrevious']);
+const HW_CODES = new Set([301, 302, 303, 304, 305, 306]);
+
+document.addEventListener('keydown', e => {
+  if (HW_KEYS.has(e.key) || HW_CODES.has(e.keyCode)) {
+    e.preventDefault();
+    startRecording();
+  }
+});
+
+document.addEventListener('keyup', e => {
+  if (HW_KEYS.has(e.key) || HW_CODES.has(e.keyCode)) {
+    e.preventDefault();
+    if (isRecording) stopAndSend();
+  }
+});
+
+// ── INIT ──
+window.addEventListener('load', async () => {
+  try { await getStream(); } catch (_) {}
+  setState('idle');
+});
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(console.error);
   </script>
 </body>
 
